@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Trash2, AlertTriangle, Wallet, Plus } from "lucide-react";
+import { storage } from "./lib/storage";
+import BankStatementUpload from "./components/BankStatementUpload";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"];
 
@@ -172,6 +174,24 @@ export default function App() {
       setTotalSavings(String(Math.max(0, (parseFloat(totalSavings) || 0) - target.amount).toFixed(2)));
     }
     setExpenses(expenses.filter((e) => e.id !== id));
+  };
+
+  // Import parsed bank-statement transactions as expenses.
+  const importTransactions = (txns) => {
+    const toAdd = txns.map((t) => ({
+      id: t.id ?? `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      desc: t.description || t.category,
+      amount: t.amount,
+      category: t.category,
+    }));
+    if (toAdd.length === 0) return;
+    setExpenses((prev) => [...prev, ...toAdd]);
+    const savingsDelta = toAdd
+      .filter((e) => e.category === "Savings/Investments")
+      .reduce((s, e) => s + e.amount, 0);
+    if (savingsDelta > 0) {
+      setTotalSavings((prev) => String(((parseFloat(prev) || 0) + savingsDelta).toFixed(2)));
+    }
   };
 
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0) + subsTotal;
@@ -377,6 +397,8 @@ export default function App() {
         })()}
 
         <div className="grid grid-cols-1 gap-6">
+          <BankStatementUpload onImport={importTransactions} />
+
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
             <h2 className="font-semibold text-slate-900 mb-4">Add Expense</h2>
             <div className="space-y-3">
