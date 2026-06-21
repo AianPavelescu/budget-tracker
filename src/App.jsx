@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Trash2, AlertTriangle, Wallet, Plus } from "lucide-react";
+import { Trash2, AlertTriangle, Wallet, Plus, Info, X, ShieldCheck } from "lucide-react";
 import { storage } from "./lib/storage";
 import BankStatementUpload from "./components/BankStatementUpload";
+import { workingDaysInMonth, workdayHolidaysInMonth } from "./lib/holidays";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"];
 
@@ -26,6 +27,8 @@ export default function App() {
   const [cycleDay, setCycleDay] = useState(25);
   const [voucherDay, setVoucherDay] = useState(0); // 0 = auto (last working day)
   const [loaded, setLoaded] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Billing cycle: cycleDay of month N → (cycleDay-1) of month N+1.
   const today = new Date();
@@ -194,20 +197,22 @@ export default function App() {
     }
   };
 
+  // Wipe every "budget:*" key from this browser and reload to a clean slate.
+  const confirmClear = async () => {
+    await storage.clearPrefix("budget:");
+    window.location.reload();
+  };
+
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0) + subsTotal;
   const baseSalary = parseFloat(salary) || 0;
   const voucherAmt = parseFloat(vouchers) || 0;
   const salaryNum = baseSalary > 0 && bonusReached ? baseSalary + voucherAmt : baseSalary;
 
-  // Working hours in the cycle's end calendar month: weekdays × 8
+  // Working hours in the cycle's end calendar month: weekdays minus RO legal holidays, × 8
   const wmYear = cycleEndMonth.getFullYear();
   const wmMonth = cycleEndMonth.getMonth();
-  const daysInWmMonth = new Date(wmYear, wmMonth + 1, 0).getDate();
-  let workingDays = 0;
-  for (let d = 1; d <= daysInWmMonth; d++) {
-    const dow = new Date(wmYear, wmMonth, d).getDay();
-    if (dow !== 0 && dow !== 6) workingDays++;
-  }
+  const monthHolidays = workdayHolidaysInMonth(wmYear, wmMonth);
+  const workingDays = workingDaysInMonth(wmYear, wmMonth);
   const workingHours = workingDays * 8;
   const hourlyRate = workingHours > 0 ? baseSalary / workingHours : 0;
   const remaining = salaryNum - totalSpent;
@@ -235,13 +240,29 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           <Wallet className="w-8 h-8 text-indigo-600" />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Monthly Budget Tracker</h1>
             <p className="text-sm text-slate-500">Cycle: {cycleAnchor.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth(), cycleEndDay).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowInfo(true)}
+              title="Data & privacy"
+              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-md cursor-pointer"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowClearConfirm(true)}
+              title="Delete everything saved in this browser"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear data
+            </button>
             <label className="text-[10px] font-semibold text-slate-500 uppercase">Cycle starts on day</label>
             <input
               type="number"
@@ -507,9 +528,20 @@ export default function App() {
                 <span className="text-sm font-semibold text-purple-600">{fmt(hourlyRate)}/hr</span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Based on {workingHours} working hours this month ({workingDays} weekdays × 8h), excluding the bonus.
-            </p>
+            <div className="mb-4">
+              <p className="text-xs text-slate-500">
+                Based on {workingHours} working hours this month ({workingDays} working days × 8h), excluding the bonus.
+              </p>
+              {monthHolidays.length > 0 && (
+                <ul className="text-[11px] text-slate-400 mt-1 space-y-0.5">
+                  {monthHolidays.map((h) => (
+                    <li key={h.date.toISOString()}>
+                      * {h.date.toLocaleDateString("en-US", { month: "long", day: "numeric" })} isn't counted because it's {h.name}.
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-2 mb-4">
               <input
                 type="text"
@@ -576,6 +608,85 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {showInfo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setShowInfo(false)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" /> Your data &amp; privacy
+                </h2>
+                <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <ul className="space-y-3 text-sm text-slate-600">
+                <li className="flex gap-2">
+                  <span className="text-emerald-600 font-bold flex-shrink-0">✓</span>
+                  <span>Everything you enter stays <strong>only in this browser, on this device</strong> — it's saved in your browser's local storage.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-emerald-600 font-bold flex-shrink-0">✓</span>
+                  <span>Nothing is uploaded. There's no server, no account and no tracking — the app's owner cannot see your data.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-emerald-600 font-bold flex-shrink-0">✓</span>
+                  <span>Bank statements are read locally in your browser. The file never leaves your device.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-amber-500 font-bold flex-shrink-0">!</span>
+                  <span>Your data isn't synced across devices and isn't encrypted — anyone using this same browser can see it. On a shared computer, use <strong>Clear data</strong> when you're done.</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => setShowInfo(false)}
+                className="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg cursor-pointer"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showClearConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setShowClearConfirm(false)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <h2 className="text-lg font-bold text-slate-900">Are you sure?</h2>
+              </div>
+              <p className="text-sm text-slate-600 mb-5">
+                This permanently deletes everything saved in this browser — salary, expenses, subscriptions, wants, savings, learned categories and imported transactions. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClear}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" /> Clear all data
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <footer className="mt-10 pt-6 border-t border-slate-200 text-center">
           <p className="text-xs text-slate-400">Made by Aian Pavelescu, 2026</p>

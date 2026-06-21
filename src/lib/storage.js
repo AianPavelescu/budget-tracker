@@ -29,6 +29,18 @@ export const storage = {
     else memoryFallback.set(key, value);
     return { value };
   },
+  async clearPrefix(prefix) {
+    if (useLS) {
+      const keys = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(prefix)) keys.push(k);
+      }
+      keys.forEach((k) => window.localStorage.removeItem(k));
+    } else {
+      for (const k of [...memoryFallback.keys()]) if (k.startsWith(prefix)) memoryFallback.delete(k);
+    }
+  },
   async remove(key) {
     if (useLS) window.localStorage.removeItem(key);
     else memoryFallback.delete(key);
