@@ -4,6 +4,7 @@ import { Trash2, AlertTriangle, Wallet, Plus, Info, X, ShieldCheck } from "lucid
 import { storage } from "./lib/storage";
 import BankStatementUpload from "./components/BankStatementUpload";
 import { workingDaysInMonth, workdayHolidaysInMonth } from "./lib/holidays";
+import Intro from "./components/Intro";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6", "#d946ef", "#0ea5e9", "#f43f5e"];
 
@@ -29,6 +30,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
 
   // Billing cycle: cycleDay of month N → (cycleDay-1) of month N+1.
   const today = new Date();
@@ -238,7 +240,8 @@ export default function App() {
   const savingsGap = Math.max(0, savingsTarget - savingsActual);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8">
+      {showIntro && <Intro onDone={() => setShowIntro(false)} />}
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <Wallet className="w-8 h-8 text-indigo-600" />
