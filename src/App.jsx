@@ -243,7 +243,7 @@ export default function App() {
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <Wallet className="w-8 h-8 text-indigo-600" />
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Monthly Budget Tracker</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Personal Budget Tracker</h1>
             <p className="text-sm text-slate-500">Cycle: {cycleAnchor.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth(), cycleEndDay).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
