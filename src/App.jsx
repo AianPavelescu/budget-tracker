@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Trash2, AlertTriangle, Wallet, Plus } from "lucide-react";
-const storage = {
-  get: async (k) => { const v = localStorage.getItem(k); return v === null ? null : { value: v }; },
-  set: async (k, v) => localStorage.setItem(k, v),
-};
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"];
 
 const DEFAULT_CATEGORIES = ["Rent", "Groceries", "Utilities", "Transport", "Dining", "Entertainment", "Health", "Savings/Investments", "Subscriptions", "Other"];
 
-export default function BudgetTracker() {
+export default function App() {
   const [salary, setSalary] = useState("");
   const [vouchers, setVouchers] = useState("900");
   const [expenses, setExpenses] = useState([]);
@@ -25,27 +21,50 @@ export default function BudgetTracker() {
   const [wantPrice, setWantPrice] = useState("");
   const [totalSavings, setTotalSavings] = useState("0");
   const [cycleStartSavings, setCycleStartSavings] = useState(null);
+  const [cycleDay, setCycleDay] = useState(25);
+  const [voucherDay, setVoucherDay] = useState(0); // 0 = auto (last working day)
   const [loaded, setLoaded] = useState(false);
 
-  // Billing cycle: 25th of month N → 24th of month N+1.
-  // Labeled by the month it ends in (e.g. cycle starting Mar 25 → "2026-04").
+  // Billing cycle: cycleDay of month N → (cycleDay-1) of month N+1.
   const today = new Date();
-  const cycleAnchor = new Date(today.getFullYear(), today.getMonth(), today.getDate() >= 25 ? 25 : -6);
+  const daysThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const effectiveCycleDay = Math.min(cycleDay, daysThisMonth);
+  const daysPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+  const prevEffective = Math.min(cycleDay, daysPrevMonth);
+  const cycleAnchor = today.getDate() >= effectiveCycleDay
+    ? new Date(today.getFullYear(), today.getMonth(), effectiveCycleDay)
+    : new Date(today.getFullYear(), today.getMonth() - 1, prevEffective);
   const cycleEndMonth = new Date(cycleAnchor.getFullYear(), cycleAnchor.getMonth() + 1, 1);
-  const monthKey = `${cycleEndMonth.getFullYear()}-${String(cycleEndMonth.getMonth() + 1).padStart(2, "0")}`;
+  const daysEndMonth = new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth() + 1, 0).getDate();
+  const cycleEndDay = Math.min(cycleDay, daysEndMonth) - 1 || Math.min(cycleDay, daysEndMonth);
+  const monthKey = `${cycleEndMonth.getFullYear()}-${String(cycleEndMonth.getMonth() + 1).padStart(2, "0")}-cd${cycleDay}`;
   const storageKey = `budget:${monthKey}`;
 
-  // Last working day of the cycle's end month (calendar month containing day 24).
+  // Voucher date: user-chosen day or auto (last working day of calendar month)
   const lastDayOfMonth = new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth() + 1, 0);
-  let bonusDate = new Date(lastDayOfMonth);
-  while (bonusDate.getDay() === 0 || bonusDate.getDay() === 6) {
-    bonusDate.setDate(bonusDate.getDate() - 1);
+  let bonusDate;
+  if (voucherDay > 0) {
+    const maxDay = lastDayOfMonth.getDate();
+    bonusDate = new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth(), Math.min(voucherDay, maxDay));
+  } else {
+    bonusDate = new Date(lastDayOfMonth);
+    while (bonusDate.getDay() === 0 || bonusDate.getDay() === 6) {
+      bonusDate.setDate(bonusDate.getDate() - 1);
+    }
   }
   const bonusReached = today >= bonusDate;
   const bonusFmt = bonusDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   useEffect(() => {
     (async () => {
+      try {
+        const cdr = await storage.get("budget:cycleDay");
+        if (cdr) setCycleDay(parseInt(cdr.value) || 25);
+      } catch (e) {}
+      try {
+        const vdr = await storage.get("budget:voucherDay");
+        if (vdr) setVoucherDay(parseInt(vdr.value) || 0);
+      } catch (e) {}
       try {
         const res = await storage.get(storageKey);
         if (res) {
@@ -106,6 +125,16 @@ export default function BudgetTracker() {
     if (!loaded) return;
     storage.set("budget:totalSavings", totalSavings).catch(() => {});
   }, [totalSavings, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    storage.set("budget:cycleDay", String(cycleDay)).catch(() => {});
+  }, [cycleDay, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    storage.set("budget:voucherDay", String(voucherDay)).catch(() => {});
+  }, [voucherDay, loaded]);
 
   const addWant = () => {
     const p = parseFloat(wantPrice);
@@ -190,7 +219,17 @@ export default function BudgetTracker() {
           <Wallet className="w-8 h-8 text-indigo-600" />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Monthly Budget Tracker</h1>
-            <p className="text-sm text-slate-500">Cycle: {cycleAnchor.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth(), 24).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
+            <p className="text-sm text-slate-500">Cycle: {cycleAnchor.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {new Date(cycleEndMonth.getFullYear(), cycleEndMonth.getMonth(), cycleEndDay).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase">Cycle starts on day</label>
+            <input
+              type="number"
+              min="1" max="31"
+              value={cycleDay}
+              onChange={(e) => { const v = Math.max(1, Math.min(31, parseInt(e.target.value) || 1)); setCycleDay(v); }}
+              className="w-14 px-2 py-1 border border-slate-300 rounded-md text-sm text-center outline-none focus:border-indigo-500"
+            />
           </div>
         </div>
 
@@ -257,6 +296,19 @@ export default function BudgetTracker() {
                     className="text-base font-semibold text-slate-700 w-full outline-none min-w-0"
                   />
                   <span className="text-xs font-semibold text-slate-500">RON</span>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Added on day</label>
+                  <select
+                    value={voucherDay}
+                    onChange={(e) => setVoucherDay(parseInt(e.target.value))}
+                    className="text-xs px-2 py-1 border border-slate-300 rounded-md outline-none focus:border-indigo-500 bg-white"
+                  >
+                    <option value={0}>Auto (last working day)</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <p className={`text-xs mt-1 ${bonusReached ? "text-emerald-600" : "text-slate-400"}`}>
                   {bonusReached ? `Added on ${bonusFmt}` : `Auto-added on ${bonusFmt}`}
@@ -505,6 +557,7 @@ export default function BudgetTracker() {
 
         <footer className="mt-10 pt-6 border-t border-slate-200 text-center">
           <p className="text-xs text-slate-400">Made by Aian Pavelescu, 2026</p>
+          <p className="text-xs text-slate-400 mt-1">All data is stored locally in your browser. The application owner has no access to your financial information.</p>
         </footer>
       </div>
     </div>
