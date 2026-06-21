@@ -5,7 +5,7 @@ import { categorize, merchantKey, CATEGORIES } from "../lib/categorize";
 import { storage } from "../lib/storage";
 
 const RULES_KEY = "budget:catRules";
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"];
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6", "#d946ef", "#0ea5e9", "#f43f5e"];
 
 const fmt = (n) => `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`;
 

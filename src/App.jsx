@@ -5,9 +5,9 @@ import { storage } from "./lib/storage";
 import BankStatementUpload from "./components/BankStatementUpload";
 import { workingDaysInMonth, workdayHolidaysInMonth } from "./lib/holidays";
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"];
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6", "#d946ef", "#0ea5e9", "#f43f5e"];
 
-const DEFAULT_CATEGORIES = ["Rent", "Groceries", "Utilities", "Transport", "Dining", "Entertainment", "Health", "Savings/Investments", "Subscriptions", "Other"];
+const DEFAULT_CATEGORIES = ["Rent", "Groceries", "Utilities", "Transport", "Dining", "Entertainment", "Health", "Savings/Investments", "Subscriptions", "Shopping", "Travel", "Education", "Other"];
 
 export default function App() {
   const [salary, setSalary] = useState("");

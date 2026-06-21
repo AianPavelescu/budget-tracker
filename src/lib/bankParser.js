@@ -35,7 +35,7 @@ const AMOUNT_RE = /-?\d+(?:[.,]\d{3})*[.,]\d{2}(?!\d)/g;
 const INCOME_RE = /salar|salary|dobanda|dividend|refund|reward|cashback|rambursare|pensie|incasare|transfer from|from .*saving|top.?up|added money|received/i;
 // Internal transfers: moving money between the user's OWN accounts (savings/vault/deposit).
 // These aren't real spending/income, so the UI can optionally exclude them.
-const INTERNAL_RE = /\bsavings\b|\bvault\b|\bdeposit\b|economii/i;
+const INTERNAL_RE = /\bsavings\b|\bvault\b|\bdeposit\b|\bpocket\b|exchanged to|economii/i;
 export const isInternalTransfer = (desc) => INTERNAL_RE.test(desc || "");
 
 // --- Number parsing (handles RO "1.234,56" and EN "1,234.56") --------------
